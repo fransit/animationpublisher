@@ -6,6 +6,10 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 export const runtime = "nodejs";
 
 function parseCreatorKey(key: string) {
+  const numericOnly = key.trim().match(/^(\d+)$/);
+  if (numericOnly) {
+    return { type: "GROUP" as const, id: numericOnly[1] };
+  }
   const match = key.trim().match(/^(USER|GROUP)\s*:\s*(\d+)$/i);
   if (!match) return null;
   const type = match[1].toUpperCase() as "USER" | "GROUP";

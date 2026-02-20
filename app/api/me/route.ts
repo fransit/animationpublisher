@@ -61,6 +61,36 @@ function creatorsFromResources(resources: any, user: any) {
   return creators;
 }
 
+async function appendGroupsFromMembershipApi(creators: { key: string; label: string; type: "USER"|"GROUP"; id: string }[], user: any) {
+  const userId = user?.sub || user?.userId || user?.id;
+  if (!userId) return creators;
+
+  const seen = new Set(creators.map((c) => c.key));
+  try {
+    const res = await fetch(`https://groups.roblox.com/v2/users/${userId}/groups/roles`, { cache: "no-store" });
+    if (!res.ok) return creators;
+    const data = await res.json();
+    const groups = Array.isArray(data?.data) ? data.data : [];
+    for (const row of groups) {
+      const g = row?.group;
+      const id = g?.id;
+      if (!id) continue;
+      const key = `GROUP:${id}`;
+      if (seen.has(key)) continue;
+      creators.push({
+        key,
+        label: `${g?.name ?? `Group ${id}`} (Group)`,
+        type: "GROUP",
+        id: String(id),
+      });
+      seen.add(key);
+    }
+  } catch {
+    // ignore fallback fetch failures
+  }
+  return creators;
+}
+
 export async function GET(req: NextRequest) {
   const token = req.cookies.get(cookieName())?.value;
   if (!token) return NextResponse.json({ error: "not logged in" }, { status: 401 });
@@ -68,7 +98,10 @@ export async function GET(req: NextRequest) {
   const session = await readSession(token);
   if (!session?.access_token) return NextResponse.json({ error: "bad session" }, { status: 401 });
 
-  const creators = creatorsFromResources((session as any).resources, (session as any).user);
+  const creators = await appendGroupsFromMembershipApi(
+    creatorsFromResources((session as any).resources, (session as any).user),
+    (session as any).user
+  );
   return NextResponse.json({
     user: (session as any).user,
     creators: creators.map(c => ({ key: c.key, label: c.label })),
