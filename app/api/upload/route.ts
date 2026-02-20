@@ -59,6 +59,16 @@ export async function POST(req: NextRequest) {
     let refreshToken = (session as any).refresh_token as string | undefined;
     let expiresAt = (session as any).expires_at as number | undefined;
     let sessionUpdated = false;
+    const now = Math.floor(Date.now() / 1000);
+    if (refreshToken && expiresAt && now >= (expiresAt - 30)) {
+      const refreshed = await refreshAccessToken(refreshToken);
+      if (refreshed?.access_token) {
+        accessToken = refreshed.access_token;
+        refreshToken = refreshed.refresh_token ?? refreshToken;
+        expiresAt = Math.floor(Date.now() / 1000) + Number(refreshed.expires_in ?? 900);
+        sessionUpdated = true;
+      }
+    }
 
     const form = await req.formData();
     responseMode = String(form.get("responseMode") || "");
@@ -140,7 +150,7 @@ export async function POST(req: NextRequest) {
           });
         } catch (assetErr: any) {
           const assetErrText = typeof assetErr?.message === "string" ? assetErr.message : String(assetErr);
-          const needsRefresh = /invalid token/i.test(assetErrText);
+          const needsRefresh = /invalid token|user not authenticated|permission_denied/i.test(assetErrText);
           if (!needsRefresh || !refreshToken) throw assetErr;
 
           const refreshed = await refreshAccessToken(refreshToken);
