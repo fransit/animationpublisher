@@ -17,8 +17,9 @@ function parseCreatorKey(key: string) {
   return { type, id };
 }
 
-function normalizeAssetType(input: string): "ANIMATION" | "AUDIO" {
-  return input === "AUDIO" ? "AUDIO" : "ANIMATION";
+function normalizeAssetType(input: string): "MODEL" | "ANIMATION" | "AUDIO" {
+  if (input === "ANIMATION" || input === "AUDIO" || input === "MODEL") return input;
+  return "MODEL";
 }
 
 function removeExt(name: string) {
