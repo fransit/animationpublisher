@@ -12,8 +12,9 @@ function collectGroupCandidates(input: unknown, out: { id: string; name: string 
   if (typeof input !== "object") return out;
 
   const node = input as Record<string, unknown>;
-  const groupId = node.groupId ?? node.id ?? node.group?.id;
-  const groupName = node.groupName ?? node.name ?? (node.group as any)?.name;
+  const groupNode = typeof node.group === "object" && node.group !== null ? (node.group as Record<string, unknown>) : null;
+  const groupId = node.groupId ?? node.id ?? groupNode?.id;
+  const groupName = node.groupName ?? node.name ?? groupNode?.name;
   if (groupId && (node.groupId || node.group || node.groupName || node.group_id)) {
     out.push({ id: String(groupId), name: String(groupName ?? `Group ${groupId}`) });
   }
