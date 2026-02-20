@@ -94,7 +94,12 @@ export default function UploadComposer(props: {
 
       xhr.onload = () => {
         try {
-          const payload = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+          let payload: any = {};
+          try {
+            payload = xhr.responseText ? JSON.parse(xhr.responseText) : {};
+          } catch {
+            payload = { error: xhr.responseText || "Upload failed" };
+          }
           const result = payload?.results?.[0];
           if (xhr.status >= 200 && xhr.status < 300 && result) {
             const status = String(result.status || "");
@@ -106,7 +111,7 @@ export default function UploadComposer(props: {
               updateItem(item.id, { state: "error", progress: 100, message: result.error || "Upload failed" });
             }
           } else {
-            updateItem(item.id, { state: "error", progress: 100, message: payload?.error || "Upload failed" });
+            updateItem(item.id, { state: "error", progress: 100, message: payload?.error || `Upload failed (${xhr.status})` });
           }
         } catch {
           updateItem(item.id, { state: "error", progress: 100, message: "Invalid server response" });
