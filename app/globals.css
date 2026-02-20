@@ -154,3 +154,46 @@ button.secondary {
   padding: 10px;
   white-space: pre-wrap;
 }
+
+.dropzone {
+  border: 1px dashed #3d4b73;
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  background: rgba(20, 30, 54, 0.45);
+}
+
+.dropzone.active {
+  border-color: #7dd3fc;
+  background: rgba(32, 48, 84, 0.6);
+}
+
+.uploader-list {
+  display: grid;
+  gap: 8px;
+}
+
+.upload-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: rgba(18, 27, 49, 0.75);
+}
+
+.progress {
+  height: 7px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  margin: 8px 0 6px;
+  background: rgba(18, 26, 45, 0.8);
+}
+
+.progress > div {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8, #3b82f6);
+}

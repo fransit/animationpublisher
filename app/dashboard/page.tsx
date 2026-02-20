@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
+import UploadComposer from "./UploadComposer";
 
 async function getMe() {
   const cookie = cookies().get("rbx_session")?.value;
@@ -46,44 +47,7 @@ export default async function Dashboard() {
         <p className="muted" style={{ margin: 0 }}>
           SaaS batch flow: pick creator, choose type, upload multiple files in one submit.
         </p>
-
-        <form action="/api/upload" method="post" encType="multipart/form-data" className="grid">
-          <label>
-            Creator
-            <select name="creatorKey" required defaultValue={me.defaultCreatorKey ?? ""}>
-              {(me.creators ?? []).map((c: any) => (
-                <option key={c.key} value={c.key}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label>
-            Creator fallback (optional)
-            <input name="creatorIdOverride" placeholder="If dropdown is empty, enter USER:123456 or GROUP:123456" />
-          </label>
-
-          <label>
-            Asset type
-            <select name="assetType" defaultValue="ANIMATION">
-              <option value="ANIMATION">Animation</option>
-              <option value="AUDIO">Sound</option>
-            </select>
-          </label>
-
-          <label>
-            Name prefix (optional)
-            <input name="assetNamePrefix" placeholder="e.g. Combat Pack - " />
-          </label>
-
-          <label>
-            Files
-            <input name="files" type="file" multiple required />
-          </label>
-
-          <button type="submit">Upload & Publish Batch</button>
-        </form>
+        <UploadComposer creators={me.creators ?? []} defaultCreatorKey={me.defaultCreatorKey ?? ""} />
       </section>
 
       <section className="card grid">

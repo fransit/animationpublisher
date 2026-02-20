@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
   if (!session?.access_token) return NextResponse.json({ error: "bad session" }, { status: 401 });
 
   const form = await req.formData();
+  const responseMode = String(form.get("responseMode") || "");
   const selectedCreatorKey = String(form.get("creatorKey") || "");
   const overrideCreatorKey = String(form.get("creatorIdOverride") || "").trim();
   const creatorKey = overrideCreatorKey || selectedCreatorKey;
@@ -73,6 +74,14 @@ export async function POST(req: NextRequest) {
   const supa = supabaseAdmin();
   const userId = String((session as any).user?.sub ?? (session as any).user?.userId ?? "unknown");
 
+  const results: Array<{
+    assetName: string;
+    uploadId?: string;
+    status: "DONE" | "PROCESSING" | "ERROR";
+    assetId?: string | number | null;
+    error?: string;
+  }> = [];
+
   for (const file of files) {
     const fileBaseName = removeExt(file.name || "asset");
     const assetName = assetNamePrefix ? `${assetNamePrefix}${fileBaseName}` : fileBaseName;
@@ -91,6 +100,11 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (insErr || !inserted?.id) {
+      results.push({
+        assetName,
+        status: "ERROR",
+        error: insErr?.message ?? "Failed to create upload row",
+      });
       continue;
     }
 
@@ -120,15 +134,23 @@ export async function POST(req: NextRequest) {
 
       if (op?.done && assetId) {
         await supa.from("uploads").update({ status: "DONE", asset_id: assetId }).eq("id", inserted.id);
+        results.push({ assetName, uploadId: inserted.id, status: "DONE", assetId });
       } else {
         await supa.from("uploads").update({ status: "PROCESSING" }).eq("id", inserted.id);
+        results.push({ assetName, uploadId: inserted.id, status: "PROCESSING", assetId: null });
       }
     } catch (e: any) {
+      const errText = typeof e?.message === "string" ? e.message : String(e);
       await supa
         .from("uploads")
-        .update({ status: "ERROR", error: typeof e?.message === "string" ? e.message : String(e) })
+        .update({ status: "ERROR", error: errText })
         .eq("id", inserted.id);
+      results.push({ assetName, uploadId: inserted.id, status: "ERROR", error: errText });
     }
+  }
+
+  if (responseMode === "json") {
+    return NextResponse.json({ ok: true, results });
   }
 
   return NextResponse.redirect(new URL("/dashboard/uploads", baseUrl));

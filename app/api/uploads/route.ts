@@ -13,11 +13,13 @@ export async function GET(req: NextRequest) {
 
   const userId = String((session as any).user?.sub ?? (session as any).user?.userId ?? "unknown");
   const q = new URL(req.url).searchParams.get("q")?.trim();
+  const assetType = new URL(req.url).searchParams.get("assetType")?.trim().toUpperCase();
 
   const supa = supabaseAdmin();
   let query = supa.from("uploads").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(50);
 
   if (q) query = query.ilike("asset_name", `%${q}%`);
+  if (assetType === "ANIMATION" || assetType === "AUDIO") query = query.eq("asset_type", assetType);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

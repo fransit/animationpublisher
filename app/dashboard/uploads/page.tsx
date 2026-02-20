@@ -1,21 +1,20 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 
-async function getUploads(q: string | null) {
+export default async function UploadsPage({ searchParams }: { searchParams: { q?: string; assetType?: string } }) {
+  const q = searchParams.q ?? null;
+  const selectedType = (searchParams.assetType ?? "").toUpperCase();
   const cookie = cookies().get("rbx_session")?.value;
   const baseUrl = process.env.APP_URL ?? "http://localhost:3000";
   const url = new URL(`${baseUrl}/api/uploads`);
   if (q) url.searchParams.set("q", q);
+  if (selectedType === "ANIMATION" || selectedType === "AUDIO") url.searchParams.set("assetType", selectedType);
   const res = await fetch(url.toString(), {
     headers: cookie ? { cookie: `rbx_session=${cookie}` } : {},
     cache: "no-store",
   });
-  if (!res.ok) return null;
-  return res.json();
-}
-
-export default async function UploadsPage({ searchParams }: { searchParams: { q?: string } }) {
-  const data = await getUploads(searchParams.q ?? null);
+  const data = res.ok ? await res.json() : null;
+  const returnTo = `/dashboard/uploads${q || selectedType ? `?${new URLSearchParams({ ...(q ? { q } : {}), ...(selectedType ? { assetType: selectedType } : {}) }).toString()}` : ""}`;
 
   if (!data) {
     return (
@@ -36,6 +35,18 @@ export default async function UploadsPage({ searchParams }: { searchParams: { q?
       <section className="card row">
         <h2 style={{ margin: 0 }}>Uploads</h2>
         <Link href="/dashboard">Back</Link>
+      </section>
+
+      <section className="card">
+        <form method="get" style={{ display: "grid", gap: 10, gridTemplateColumns: "minmax(0,1fr) 200px auto" }}>
+          <input name="q" defaultValue={q ?? ""} placeholder="Search name..." />
+          <select name="assetType" defaultValue={selectedType}>
+            <option value="">All types</option>
+            <option value="ANIMATION">Animation</option>
+            <option value="AUDIO">Sound</option>
+          </select>
+          <button type="submit">Filter</button>
+        </form>
       </section>
 
       <div className="table-list">
@@ -60,6 +71,16 @@ export default async function UploadsPage({ searchParams }: { searchParams: { q?
             {u.error && (
               <div style={{ marginTop: 10 }} className="error-box">{u.error}</div>
             )}
+
+            {u.status === "ERROR" && u.operation_path ? (
+              <form action="/api/upload/retry" method="post" style={{ marginTop: 10, display: "flex", gap: 8 }}>
+                <input type="hidden" name="uploadId" value={u.id} />
+                <input type="hidden" name="returnTo" value={returnTo} />
+                <button className="secondary" type="submit" style={{ width: 170 }}>
+                  Retry Failed Upload
+                </button>
+              </form>
+            ) : null}
           </div>
         ))}
       </div>
