@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     resources,
   } as any);
 
-  const appUrl = process.env.APP_URL!;
+  const appUrl = process.env.APP_URL ?? req.nextUrl.origin;
   const res = NextResponse.redirect(new URL("/dashboard", appUrl));
   res.cookies.set(cookieName(), sessionJwt, {
     httpOnly: true,

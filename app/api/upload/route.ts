@@ -33,6 +33,7 @@ async function pollOperation(accessToken: string, operationPath: string, timeout
 }
 
 export async function POST(req: NextRequest) {
+  const baseUrl = process.env.APP_URL ?? req.nextUrl.origin;
   const token = req.cookies.get(cookieName())?.value;
   if (!token) return NextResponse.json({ error: "not logged in" }, { status: 401 });
 
@@ -96,17 +97,17 @@ export async function POST(req: NextRequest) {
 
     if (op?.done && assetId) {
       await supa.from("uploads").update({ status: "DONE", asset_id: assetId }).eq("id", inserted.id);
-      return NextResponse.redirect(new URL("/dashboard/uploads", process.env.APP_URL));
+      return NextResponse.redirect(new URL("/dashboard/uploads", baseUrl));
     }
 
     await supa.from("uploads").update({ status: "PROCESSING" }).eq("id", inserted.id);
-    return NextResponse.redirect(new URL("/dashboard/uploads", process.env.APP_URL));
+    return NextResponse.redirect(new URL("/dashboard/uploads", baseUrl));
   } catch (e: any) {
     await supa
       .from("uploads")
       .update({ status: "ERROR", error: typeof e?.message === "string" ? e.message : String(e) })
       .eq("id", inserted.id);
 
-    return NextResponse.redirect(new URL("/dashboard/uploads", process.env.APP_URL));
+    return NextResponse.redirect(new URL("/dashboard/uploads", baseUrl));
   }
 }
