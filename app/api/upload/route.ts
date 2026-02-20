@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookieName, readSession } from "@/lib/session";
-import { createAsset, getOperation } from "@/lib/roblox";
+import { cookieName, readSession, signSession } from "@/lib/session";
+import { createAsset, getOperation, refreshAccessToken } from "@/lib/roblox";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -55,6 +55,10 @@ export async function POST(req: NextRequest) {
 
     const session = await readSession(token);
     if (!session?.access_token) return NextResponse.json({ error: "bad session" }, { status: 401 });
+    let accessToken = session.access_token;
+    let refreshToken = (session as any).refresh_token as string | undefined;
+    let expiresAt = (session as any).expires_at as number | undefined;
+    let sessionUpdated = false;
 
     const form = await req.formData();
     responseMode = String(form.get("responseMode") || "");
@@ -123,22 +127,46 @@ export async function POST(req: NextRequest) {
       }
 
       try {
-        const createRes = await createAsset({
-          accessToken: session.access_token,
-          creatorType: type,
-          creatorId: id,
-          assetName,
-          assetType,
-          file,
-          expectedPrice: 0,
-        });
+        let createRes: any;
+        try {
+          createRes = await createAsset({
+            accessToken,
+            creatorType: type,
+            creatorId: id,
+            assetName,
+            assetType,
+            file,
+            expectedPrice: 0,
+          });
+        } catch (assetErr: any) {
+          const assetErrText = typeof assetErr?.message === "string" ? assetErr.message : String(assetErr);
+          const needsRefresh = /invalid token/i.test(assetErrText);
+          if (!needsRefresh || !refreshToken) throw assetErr;
+
+          const refreshed = await refreshAccessToken(refreshToken);
+          if (!refreshed?.access_token) throw assetErr;
+          accessToken = refreshed.access_token;
+          refreshToken = refreshed.refresh_token ?? refreshToken;
+          expiresAt = Math.floor(Date.now() / 1000) + Number(refreshed.expires_in ?? 900);
+          sessionUpdated = true;
+
+          createRes = await createAsset({
+            accessToken,
+            creatorType: type,
+            creatorId: id,
+            assetName,
+            assetType,
+            file,
+            expectedPrice: 0,
+          });
+        }
 
         const operationPath = createRes?.path || createRes?.operationPath || createRes?.operation || null;
         if (!operationPath) throw new Error("No operation path returned from Roblox");
 
         await supa.from("uploads").update({ operation_path: operationPath }).eq("id", inserted.id);
 
-        const op = await pollOperation(session.access_token, operationPath, 90_000);
+        const op = await pollOperation(accessToken, operationPath, 90_000);
         const assetId =
           op?.response?.assetId ??
           op?.response?.asset?.assetId ??
@@ -163,11 +191,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const attachSessionCookie = async (res: NextResponse) => {
+      if (!sessionUpdated) return res;
+      const updatedJwt = await signSession({
+        ...(session as any),
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_at: expiresAt,
+      });
+      res.cookies.set(cookieName(), updatedJwt, {
+        httpOnly: true,
+        secure: baseUrl.startsWith("https"),
+        sameSite: "lax",
+        path: "/",
+      });
+      return res;
+    };
+
     if (responseMode === "json") {
-      return NextResponse.json({ ok: true, results });
+      return attachSessionCookie(NextResponse.json({ ok: true, results }));
     }
 
-    return NextResponse.redirect(new URL("/dashboard/uploads", baseUrl));
+    return attachSessionCookie(NextResponse.redirect(new URL("/dashboard/uploads", baseUrl)));
   } catch (e: any) {
     const message = typeof e?.message === "string" ? e.message : String(e);
     if (responseMode === "json") {

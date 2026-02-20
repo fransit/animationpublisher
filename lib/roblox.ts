@@ -29,6 +29,24 @@ export async function exchangeCodeForToken(args: {
   return data;
 }
 
+export async function refreshAccessToken(refreshToken: string) {
+  const body = new URLSearchParams();
+  body.set("grant_type", "refresh_token");
+  body.set("refresh_token", refreshToken);
+  body.set("client_id", process.env.ROBLOX_CLIENT_ID!);
+  body.set("client_secret", process.env.ROBLOX_CLIENT_SECRET!);
+
+  const res = await fetch(`${OAUTH_BASE}/v1/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(JSON.stringify(data));
+  return data;
+}
+
 export async function oauthUserInfo(accessToken: string) {
   const res = await fetch(`${OAUTH_BASE}/v1/userinfo`, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -39,9 +57,15 @@ export async function oauthUserInfo(accessToken: string) {
 }
 
 export async function oauthResources(accessToken: string) {
+  const body = new URLSearchParams();
+  body.set("token", accessToken);
+  body.set("client_id", process.env.ROBLOX_CLIENT_ID!);
+  body.set("client_secret", process.env.ROBLOX_CLIENT_SECRET!);
+
   const res = await fetch(`${OAUTH_BASE}/v1/token/resources`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
   });
   const data = await res.json();
   if (!res.ok) throw new Error(JSON.stringify(data));
