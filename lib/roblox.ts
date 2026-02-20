@@ -48,17 +48,18 @@ export async function oauthResources(accessToken: string) {
   return data;
 }
 
-export async function createAssetRbxm(args: {
+export async function createAsset(args: {
   accessToken: string;
   creatorType: "USER" | "GROUP";
   creatorId: string;
   assetName: string;
+  assetType: "ANIMATION" | "AUDIO";
   file: File;
   expectedPrice?: number;
 }) {
   const form = new FormData();
   const requestPayload: any = {
-    assetType: "MODEL",
+    assetType: args.assetType,
     displayName: args.assetName,
     description: "",
     creationContext: {

@@ -3,7 +3,8 @@ import Link from "next/link";
 
 async function getMe() {
   const cookie = cookies().get("rbx_session")?.value;
-  const res = await fetch(`${process.env.APP_URL}/api/me`, {
+  const baseUrl = process.env.APP_URL ?? "http://localhost:3000";
+  const res = await fetch(`${baseUrl}/api/me`, {
     headers: cookie ? { cookie: `rbx_session=${cookie}` } : {},
     cache: "no-store",
   });
@@ -17,35 +18,40 @@ export default async function Dashboard() {
   if (!me) {
     return (
       <main>
-        <h2>Dashboard</h2>
-        <p>You are not logged in.</p>
-        <Link href="/login">Go to login</Link>
+        <section className="card grid">
+          <h2 style={{ margin: 0 }}>Dashboard</h2>
+          <p className="muted" style={{ margin: 0 }}>
+            You are not logged in.
+          </p>
+          <Link href="/login">Go to login</Link>
+        </section>
       </main>
     );
   }
 
   return (
-    <main>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <h2 style={{ margin: 0 }}>Dashboard</h2>
-        <a href="/api/logout">Logout</a>
-      </div>
+    <main className="grid">
+      <section className="card">
+        <div className="row">
+          <h2 style={{ margin: 0 }}>Dashboard</h2>
+          <a href="/api/logout">Logout</a>
+        </div>
+        <p className="muted" style={{ marginBottom: 0 }}>
+          Logged in as <b>{me.user?.name ?? me.user?.preferred_username ?? "Roblox user"}</b>
+        </p>
+      </section>
 
-      <p style={{ marginTop: 8 }}>
-        Logged in as <b>{me.user?.name ?? me.user?.preferred_username ?? "Roblox user"}</b>
-      </p>
-
-      <section style={{ border: "1px solid #eee", borderRadius: 14, padding: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Upload & Publish</h3>
-        <p style={{ marginTop: 0, opacity: 0.85 }}>
-          Choose a creator then upload an <b>.rbxm</b>. We’ll publish it as a Model asset.
+      <section className="card grid">
+        <h3 style={{ margin: 0 }}>Upload Assets</h3>
+        <p className="muted" style={{ margin: 0 }}>
+          SaaS batch flow: pick creator, choose type, upload multiple files in one submit.
         </p>
 
-        <form action="/api/upload" method="post" encType="multipart/form-data" style={{ display: "grid", gap: 10 }}>
-          <label style={{ display: "grid", gap: 6 }}>
+        <form action="/api/upload" method="post" encType="multipart/form-data" className="grid">
+          <label>
             Creator
             <select name="creatorKey" required defaultValue={me.defaultCreatorKey ?? ""}>
-              {me.creators?.map((c: any) => (
+              {(me.creators ?? []).map((c: any) => (
                 <option key={c.key} value={c.key}>
                   {c.label}
                 </option>
@@ -53,31 +59,42 @@ export default async function Dashboard() {
             </select>
           </label>
 
-          <label style={{ display: "grid", gap: 6 }}>
-            Asset name
-            <input name="assetName" required placeholder="MyCoolModel" />
+          <label>
+            Creator fallback (optional)
+            <input name="creatorIdOverride" placeholder="If dropdown is empty, enter USER:123456 or GROUP:123456" />
           </label>
 
-          <label style={{ display: "grid", gap: 6 }}>
-            RBXM file
-            <input name="file" type="file" accept=".rbxm" required />
+          <label>
+            Asset type
+            <select name="assetType" defaultValue="ANIMATION">
+              <option value="ANIMATION">Animation</option>
+              <option value="AUDIO">Sound</option>
+            </select>
           </label>
 
-          <button type="submit" style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #ddd" }}>
-            Upload & Publish
-          </button>
+          <label>
+            Name prefix (optional)
+            <input name="assetNamePrefix" placeholder="e.g. Combat Pack - " />
+          </label>
+
+          <label>
+            Files
+            <input name="files" type="file" multiple required />
+          </label>
+
+          <button type="submit">Upload & Publish Batch</button>
         </form>
       </section>
 
-      <div style={{ height: 16 }} />
+      <section className="card grid">
+        <h3 style={{ margin: 0 }}>My uploads</h3>
+        <p className="muted" style={{ margin: 0 }}>
+          Search by name and track processing status.
+        </p>
 
-      <section style={{ border: "1px solid #eee", borderRadius: 14, padding: 16 }}>
-        <h3 style={{ marginTop: 0 }}>My uploads</h3>
-        <p style={{ marginTop: 0, opacity: 0.85 }}>Search works on name.</p>
-
-        <form action="/dashboard/uploads" method="get" style={{ display: "flex", gap: 10, marginBottom: 10 }}>
+        <form action="/dashboard/uploads" method="get" style={{ display: "flex", gap: 10 }}>
           <input name="q" placeholder="Search name..." style={{ flex: 1 }} />
-          <button type="submit" style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid #ddd" }}>
+          <button type="submit" style={{ width: 130 }}>
             Search
           </button>
         </form>

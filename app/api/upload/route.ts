@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookieName, readSession } from "@/lib/session";
-import { createAssetRbxm, getOperation } from "@/lib/roblox";
+import { createAsset, getOperation } from "@/lib/roblox";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -10,6 +10,14 @@ function parseCreatorKey(key: string) {
   if (type !== "USER" && type !== "GROUP") throw new Error("Invalid creator type");
   if (!id) throw new Error("Invalid creator id");
   return { type: type as "USER" | "GROUP", id };
+}
+
+function normalizeAssetType(input: string): "ANIMATION" | "AUDIO" {
+  return input === "AUDIO" ? "AUDIO" : "ANIMATION";
+}
+
+function removeExt(name: string) {
+  return name.replace(/\.[^/.]+$/, "");
 }
 
 async function pollOperation(accessToken: string, operationPath: string, timeoutMs = 60_000) {
@@ -41,12 +49,23 @@ export async function POST(req: NextRequest) {
   if (!session?.access_token) return NextResponse.json({ error: "bad session" }, { status: 401 });
 
   const form = await req.formData();
-  const creatorKey = String(form.get("creatorKey") || "");
-  const assetName = String(form.get("assetName") || "").trim();
-  const file = form.get("file");
+  const selectedCreatorKey = String(form.get("creatorKey") || "");
+  const overrideCreatorKey = String(form.get("creatorIdOverride") || "").trim();
+  const creatorKey = overrideCreatorKey || selectedCreatorKey;
+  const assetType = normalizeAssetType(String(form.get("assetType") || "ANIMATION"));
+  const assetNamePrefix = String(form.get("assetNamePrefix") || "").trim();
+  const files = form
+    .getAll("files")
+    .filter((item): item is File => item instanceof File && item.size > 0);
 
-  if (!creatorKey || !assetName || !(file instanceof File)) {
-    return NextResponse.json({ error: "missing fields" }, { status: 400 });
+  // Backward compatibility for old form name.
+  const fallbackFile = form.get("file");
+  if (files.length === 0 && fallbackFile instanceof File && fallbackFile.size > 0) {
+    files.push(fallbackFile);
+  }
+
+  if (!creatorKey || files.length === 0) {
+    return NextResponse.json({ error: "missing creator/files" }, { status: 400 });
   }
 
   const { type, id } = parseCreatorKey(creatorKey);
@@ -54,60 +73,63 @@ export async function POST(req: NextRequest) {
   const supa = supabaseAdmin();
   const userId = String((session as any).user?.sub ?? (session as any).user?.userId ?? "unknown");
 
-  // Create a DB row first
-  const { data: inserted, error: insErr } = await supa
-    .from("uploads")
-    .insert({
-      user_id: userId,
-      creator_type: type,
-      creator_id: id,
-      asset_name: assetName,
-      asset_type: "MODEL",
-      status: "PROCESSING",
-    })
-    .select()
-    .single();
+  for (const file of files) {
+    const fileBaseName = removeExt(file.name || "asset");
+    const assetName = assetNamePrefix ? `${assetNamePrefix}${fileBaseName}` : fileBaseName;
 
-  if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
+    const { data: inserted, error: insErr } = await supa
+      .from("uploads")
+      .insert({
+        user_id: userId,
+        creator_type: type,
+        creator_id: id,
+        asset_name: assetName,
+        asset_type: assetType,
+        status: "PROCESSING",
+      })
+      .select()
+      .single();
 
-  try {
-    const createRes = await createAssetRbxm({
-      accessToken: session.access_token,
-      creatorType: type,
-      creatorId: id,
-      assetName,
-      file,
-      expectedPrice: 0,
-    });
-
-    const operationPath = createRes?.path || createRes?.operationPath || createRes?.operation || null;
-    if (!operationPath) throw new Error("No operation path returned from Roblox");
-
-    await supa.from("uploads").update({ operation_path: operationPath }).eq("id", inserted.id);
-
-    const op = await pollOperation(session.access_token, operationPath, 90_000);
-
-    // Operation response formats vary, best-effort parse:
-    const assetId =
-      op?.response?.assetId ??
-      op?.response?.asset?.assetId ??
-      op?.response?.asset?.id ??
-      op?.response?.id ??
-      null;
-
-    if (op?.done && assetId) {
-      await supa.from("uploads").update({ status: "DONE", asset_id: assetId }).eq("id", inserted.id);
-      return NextResponse.redirect(new URL("/dashboard/uploads", baseUrl));
+    if (insErr || !inserted?.id) {
+      continue;
     }
 
-    await supa.from("uploads").update({ status: "PROCESSING" }).eq("id", inserted.id);
-    return NextResponse.redirect(new URL("/dashboard/uploads", baseUrl));
-  } catch (e: any) {
-    await supa
-      .from("uploads")
-      .update({ status: "ERROR", error: typeof e?.message === "string" ? e.message : String(e) })
-      .eq("id", inserted.id);
+    try {
+      const createRes = await createAsset({
+        accessToken: session.access_token,
+        creatorType: type,
+        creatorId: id,
+        assetName,
+        assetType,
+        file,
+        expectedPrice: 0,
+      });
 
-    return NextResponse.redirect(new URL("/dashboard/uploads", baseUrl));
+      const operationPath = createRes?.path || createRes?.operationPath || createRes?.operation || null;
+      if (!operationPath) throw new Error("No operation path returned from Roblox");
+
+      await supa.from("uploads").update({ operation_path: operationPath }).eq("id", inserted.id);
+
+      const op = await pollOperation(session.access_token, operationPath, 90_000);
+      const assetId =
+        op?.response?.assetId ??
+        op?.response?.asset?.assetId ??
+        op?.response?.asset?.id ??
+        op?.response?.id ??
+        null;
+
+      if (op?.done && assetId) {
+        await supa.from("uploads").update({ status: "DONE", asset_id: assetId }).eq("id", inserted.id);
+      } else {
+        await supa.from("uploads").update({ status: "PROCESSING" }).eq("id", inserted.id);
+      }
+    } catch (e: any) {
+      await supa
+        .from("uploads")
+        .update({ status: "ERROR", error: typeof e?.message === "string" ? e.message : String(e) })
+        .eq("id", inserted.id);
+    }
   }
+
+  return NextResponse.redirect(new URL("/dashboard/uploads", baseUrl));
 }
