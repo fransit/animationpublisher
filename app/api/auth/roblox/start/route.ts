@@ -21,7 +21,7 @@ export async function GET() {
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: "openid profile asset:write asset:read",
+    scope: "asset:write asset:read",
     code_challenge: challenge,
     code_challenge_method: "S256",
     state,
