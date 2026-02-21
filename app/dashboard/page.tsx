@@ -45,7 +45,7 @@ export default async function Dashboard() {
       <section className="card grid">
         <h3 style={{ margin: 0 }}>Upload Assets</h3>
         <p className="muted" style={{ margin: 0 }}>
-          SaaS batch flow: pick creator, choose type, upload multiple files in one submit.
+          SaaS batch flow: pick creator, then upload multiple audio files in one submit.
         </p>
         <UploadComposer creators={me.creators ?? []} defaultCreatorKey={me.defaultCreatorKey ?? ""} />
       </section>

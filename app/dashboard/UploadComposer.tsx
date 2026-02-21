@@ -31,7 +31,7 @@ export default function UploadComposer(props: {
 }) {
   const [creatorKey, setCreatorKey] = useState(props.defaultCreatorKey || "");
   const [creatorOverride, setCreatorOverride] = useState("");
-  const [assetType, setAssetType] = useState<"ANIMATION" | "AUDIO">("ANIMATION");
+  const [assetType, setAssetType] = useState<"ANIMATION" | "AUDIO">("AUDIO");
   const [assetNamePrefix, setAssetNamePrefix] = useState("");
   const [items, setItems] = useState<UploadItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -174,7 +174,9 @@ export default function UploadComposer(props: {
         <label>
           Asset type
           <select value={assetType} onChange={(e) => setAssetType(e.target.value as "ANIMATION" | "AUDIO")}>
-            <option value="ANIMATION">Animation</option>
+            <option value="ANIMATION" disabled>
+              Animation (not yet supported by Roblox API)
+            </option>
             <option value="AUDIO">Sound</option>
           </select>
         </label>
@@ -199,7 +201,7 @@ export default function UploadComposer(props: {
         }}
       >
         <b>Drag and drop files here</b>
-        <span className="muted">or pick from your device</span>
+        <span className="muted">or pick from your device (.mp3, .ogg)</span>
         <input
           type="file"
           multiple

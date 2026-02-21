@@ -25,6 +25,10 @@ function removeExt(name: string) {
   return name.replace(/\.[^/.]+$/, "");
 }
 
+function isSupportedAudioFile(fileName: string) {
+  return /\.(mp3|ogg)$/i.test(fileName);
+}
+
 async function pollOperation(accessToken: string, operationPath: string, timeoutMs = 60_000) {
   const started = Date.now();
   let last: any = null;
@@ -85,6 +89,15 @@ export async function POST(req: NextRequest) {
     }
     const { type, id } = parsedCreator;
     const assetType = normalizeAssetType(String(form.get("assetType") || "ANIMATION"));
+    if (assetType === "ANIMATION") {
+      return NextResponse.json(
+        {
+          error:
+            "Animation upload is not currently supported by Roblox Open Cloud Assets API. Use Sound with .mp3/.ogg for now.",
+        },
+        { status: 400 },
+      );
+    }
     const assetNamePrefix = String(form.get("assetNamePrefix") || "").trim();
     const files = form
       .getAll("files")
@@ -114,6 +127,15 @@ export async function POST(req: NextRequest) {
     for (const file of files) {
       const fileBaseName = removeExt(file.name || "asset");
       const assetName = assetNamePrefix ? `${assetNamePrefix}${fileBaseName}` : fileBaseName;
+
+      if (assetType === "AUDIO" && !isSupportedAudioFile(file.name || "")) {
+        results.push({
+          assetName,
+          status: "ERROR",
+          error: "Unsupported audio file type. Allowed: .mp3, .ogg",
+        });
+        continue;
+      }
 
       const { data: inserted, error: insErr } = await supa
         .from("uploads")
