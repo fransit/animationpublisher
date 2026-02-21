@@ -31,7 +31,7 @@ export default function UploadComposer(props: {
 }) {
   const [creatorKey, setCreatorKey] = useState(props.defaultCreatorKey || "");
   const [creatorOverride, setCreatorOverride] = useState("");
-  const [assetType, setAssetType] = useState<"MODEL" | "ANIMATION" | "AUDIO">("MODEL");
+  const [assetType, setAssetType] = useState<"ANIMATION" | "AUDIO">("ANIMATION");
   const [assetNamePrefix, setAssetNamePrefix] = useState("");
   const [items, setItems] = useState<UploadItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -173,8 +173,7 @@ export default function UploadComposer(props: {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <label>
           Asset type
-          <select value={assetType} onChange={(e) => setAssetType(e.target.value as "MODEL" | "ANIMATION" | "AUDIO")}>
-            <option value="MODEL">Model (.rbxm)</option>
+          <select value={assetType} onChange={(e) => setAssetType(e.target.value as "ANIMATION" | "AUDIO")}>
             <option value="ANIMATION">Animation</option>
             <option value="AUDIO">Sound</option>
           </select>

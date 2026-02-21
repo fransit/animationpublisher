@@ -17,9 +17,8 @@ function parseCreatorKey(key: string) {
   return { type, id };
 }
 
-function normalizeAssetType(input: string): "MODEL" | "ANIMATION" | "AUDIO" {
-  if (input === "ANIMATION" || input === "AUDIO" || input === "MODEL") return input;
-  return "MODEL";
+function normalizeAssetType(input: string): "ANIMATION" | "AUDIO" {
+  return input === "AUDIO" ? "AUDIO" : "ANIMATION";
 }
 
 function removeExt(name: string) {
@@ -75,7 +74,8 @@ export async function POST(req: NextRequest) {
     responseMode = String(form.get("responseMode") || "");
     const selectedCreatorKey = String(form.get("creatorKey") || "");
     const overrideCreatorKey = String(form.get("creatorIdOverride") || "").trim();
-    const creatorKey = overrideCreatorKey || selectedCreatorKey;
+    // Prefer dropdown selection; only use fallback when dropdown is empty.
+    const creatorKey = selectedCreatorKey || overrideCreatorKey;
     const parsedCreator = parseCreatorKey(creatorKey);
     if (!parsedCreator) {
       return NextResponse.json(

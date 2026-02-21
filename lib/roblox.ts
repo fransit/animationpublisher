@@ -77,7 +77,7 @@ export async function createAsset(args: {
   creatorType: "USER" | "GROUP";
   creatorId: string;
   assetName: string;
-  assetType: "MODEL" | "ANIMATION" | "AUDIO";
+  assetType: "ANIMATION" | "AUDIO";
   file: File;
   expectedPrice?: number;
 }) {
